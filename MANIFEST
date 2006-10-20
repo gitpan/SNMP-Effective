@@ -1,0 +1,6 @@
+./Makefile.PL
+./SNMP
+./SNMP/Effective.pm
+./MANIFEST
+./BUGS
+./README.html
