@@ -8,7 +8,8 @@ use strict;
 use SNMP;
 use Tie::Array;
 
-our @ISA = qw/Tie::StdArray/;
+our @ISA     = qw/Tie::StdArray/;
+our $VERSION = '1.04';
 
 
 sub PUSH { #==================================================================
@@ -70,7 +71,7 @@ SNMP::Effective::VarList - Helper module for SNMP::Effective
 
 =head1 VERSION
 
-This document refers to version 0.04 of SNMP::Effective::VarList.
+This document refers to version 1.04 of SNMP::Effective::VarList.
 
 =head1 DESCRIPTION
 

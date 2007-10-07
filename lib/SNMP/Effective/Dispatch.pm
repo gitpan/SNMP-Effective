@@ -7,7 +7,8 @@ use strict;
 use warnings;
 use Time::HiRes qw/usleep/;
 
-our %METHOD = (
+our $VERSION = '1.04';
+our %METHOD  = (
     get     => 'get',
     getnext => 'getnext',
     walk    => 'getnext',
@@ -228,7 +229,7 @@ SNMP::Effective::Dispatch - Helper module for SNMP::Effective
 
 =head1 VERSION
 
-This document refers to version 0.04 of SNMP::Effective::Dispatch.
+This document refers to version 1.04 of SNMP::Effective::Dispatch.
 
 =head1 DESCRIPTION
 
