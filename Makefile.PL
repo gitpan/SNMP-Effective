@@ -1,15 +1,20 @@
-
+use strict;
+use warnings;
 use ExtUtils::MakeMaker;
 
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
-
 WriteMakefile(
-    'NAME'         => 'SNMP::Effective',
-    'VERSION_FROM' => 'SNMP/Effective.pm', # finds $VERSION
-    'dist'         => { COMPRESS => 'gzip', SUFFIX=>'gz' },
-    'PREREQ_PM'    => {
-         'SNMP' => '5.2',
-     },
+    NAME                => 'SNMP::Effective',
+    AUTHOR              => 'Jan Henning Thorsen <pm@flodhest.net>',
+    VERSION_FROM        => 'lib/SNMP/Effective.pm',
+    ABSTRACT_FROM       => 'lib/SNMP/Effective.pm',
+    PL_FILES            => {},
+    PREREQ_PM => {
+        'SNMP'          => 0,
+        'Time::HiRes'   => 0,
+        'Log::Log4Perl' => 0,
+        'Tie::Array'    => 0,
+    },
+    dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+    clean               => { FILES => 'SNMP-Effective-*' },
+    realclean           => { FILES => 'Makefile.old' },
 );
-
