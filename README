@@ -2,7 +2,7 @@ NAME
     SNMP::Effective - An effective SNMP-information-gathering module
 
 VERSION
-    This document refers to version 1.04 of SNMP::Effective.
+    This document refers to version 1.05 of SNMP::Effective.
 
 SYNOPSIS
      use SNMP::Effective;
@@ -210,7 +210,7 @@ DEPENDENCIES
     In addition to the contents of the standard Perl distribution, this
     module requires the following:
 
-    "Log::Log4Perl"
+    "Log::Log4perl"
         By default the level of reporting is set to "error" and will be
         directed to "STDERR".
 
