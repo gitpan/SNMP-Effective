@@ -1,33 +1,24 @@
-
-#=======================
 package SNMP::Effective;
-#=======================
 
 use warnings;
 use strict;
-use Log::Log4perl;
 use SNMP;
 use SNMP::Effective::Dispatch;
 use SNMP::Effective::Host;
 use SNMP::Effective::HostList;
 use SNMP::Effective::VarList;
+use SNMP::Effective::Logger;
+use Time::HiRes qw/usleep/;
 use POSIX qw(:errno_h);
 
-our $VERSION   = '1.05';
-our @ISA       = qw/SNMP::Effective::Dispatch/;
-our %SNMPARG   = (
+our $VERSION = '1.06';
+our @ISA     = qw/SNMP::Effective::Dispatch/;
+our %SNMPARG = (
     Version   => '2c',
     Community => 'public',
     Timeout   => 1e6,
     Retries   => 2
 );
-
-### loglevels: DEBUG, INFO, WARN, ERROR and FATAL
-our $LOGCONFIG = {
-    "log4perl.rootLogger"             => "ERROR, screen",
-    "log4perl.appender.screen"        => "Log::Log4perl::Appender::Screen",
-    "log4perl.appender.screen.layout" => "Log::Log4perl::Layout::SimpleLayout",
-};
 
 
 BEGIN {
@@ -35,7 +26,6 @@ BEGIN {
     my %sub2key = qw/
                       max_sessions    maxsessions
                       master_timeout  mastertimeout
-                      _lock           _dispatch_lock
                       _varlist        _varlist
                       hostlist        _hostlist
                       arg             _arg
@@ -52,16 +42,13 @@ BEGIN {
     }
 }
 
-sub new { #===================================================================
-
-    ### init
+sub new {
     my $class = shift;
     my %args  = _format_arguments(@_);
     my %self  = (
                     maxsessions    => 1,
                     mastertimeout  => undef,
                     _sessions      => 0,
-                    _dispatch_lock => 0,
                     _hostlist      => SNMP::Effective::HostList->new,
                     _varlist       => [],
                     _arg           => {},
@@ -70,21 +57,14 @@ sub new { #===================================================================
                 );
     my $self  = (ref $class) ? $class : bless \%self, $class;
 
-    ### initialize Log4perl
-    Log::Log4perl->init($LOGCONFIG) unless(Log::Log4perl->initialized);
-    $self->log( Log::Log4perl->get_logger($class) );
+    $self->log( SNMP::Effective::Logger->new );
+    $self->add( %args );
 
-    ### append other arguments
-    $self->add(%args);
-
-    ### the end
     $self->log->debug("Constructed SNMP::Effective Object");
     return $self;
 }
 
-sub add { #===================================================================
-
-    ### init
+sub add {
     my $self        = shift;
     my %in          = _format_arguments(@_) or return;
     my $hostlist    = $self->hostlist;
@@ -137,17 +117,15 @@ sub add { #===================================================================
     ### update hosts
     else {
         push @$varlist, @$new_varlist;
-        $self->arg($in{'arg'});
-        $self->callback($in{'callback'});
+        $self->arg($in{'arg'})           if(ref $in{'arg'} eq 'HASH');
+        $self->callback($in{'callback'}) if(ref $in{'callback'});
+        $self->heap($in{'heap'})         if(defined $in{'heap'});
     }
 
-    ### the end
     return 1;
 }
 
-sub execute { #===============================================================
-
-    ### init
+sub execute {
     my $self = shift;
 
     ### no hosts to get data from
@@ -155,6 +133,9 @@ sub execute { #===============================================================
         $self->log->warn("Cannot execute: No hosts defined");
         return 0;
     }
+
+    ### setup lock
+    $self->_init_lock;
 
     ### dispatch with master timoeut
     if(my $timeout = $self->master_timeout) {
@@ -172,7 +153,6 @@ sub execute { #===============================================================
 
         ### check result from eval
         if($@ and $@ =~ /$die_msg/mx) {
-            $self->_lock(0);
             $self->master_timeout(0);
             $self->log->error("Master timeout!");
             SNMP::finish();
@@ -188,37 +168,29 @@ sub execute { #===============================================================
         $self->dispatch and SNMP::MainLoop();
     }
 
-    ### the end
     $self->log->warn("Done running the dispatcher");
     return 1;
 }
 
-sub _create_session { #=======================================================
-
-    ### init
+sub _create_session {
     my $self = shift;
     my $host = shift;
     my $snmp;
 
-    ### create session
     $!    = 0;
     $snmp = SNMP::Session->new(%SNMPARG, $host->arg);
 
-    ### check error
     unless($snmp) {
         my($retry, $msg) = $self->_check_errno($!);
         $self->log->error("SNMP session failed for host $host: $msg");
         return ($retry) ? '' : undef;
     }
 
-    ### the end
     $self->log->debug("SNMP session created for $host");
     return $snmp;
 }
 
-sub _check_errno { #==========================================================
-    
-    ### init
+sub _check_errno {
     my $err    = pop;
     my $retry  = 0;
     my $string = '';
@@ -243,38 +215,27 @@ sub _check_errno { #==========================================================
         }
     }
 
-    ### the end
     return($retry, $string);
 }
 
-sub match_oid { #=============================================================
-
-    ### init
+sub match_oid {
     my $p = shift or return;
     my $c = shift or return;
-    
-    ### check
     return ($p =~ /^ \.? $c \.? (.*)/mx) ? $1 : undef;
 }
 
-sub make_numeric_oid { #======================================================
-
-    ### init
+sub make_numeric_oid {
     my @input = @_;
     
-    ### fix
     for my $i (@input) {
         next if($i =~ /^ [\d\.]+ $/mx);
         $i = SNMP::translateObj($i);
     }
     
-    ### the end
     return wantarray ? @input : $input[0];
 }
 
-sub make_name_oid { #=========================================================
-
-    ### init
+sub make_name_oid {
     my @input = @_;
     
     ### fix
@@ -282,34 +243,61 @@ sub make_name_oid { #=========================================================
         $i = SNMP::translateObj($i) if($i =~ /^ [\d\.]+ $/mx);
     }
     
-    ### the end
     return wantarray ? @input : $input[0];
 
 }
 
-sub _format_arguments { #=====================================================
-
-    ### odd number of elements
+sub _format_arguments {
     return if(@_ % 2 == 1);
 
-    ### init
     my %args = @_;
 
-    ### fix arguments
     for my $k (keys %args) {
-        my $v   =  delete $args{$k};
-           $k   =  lc $k;
-           $k   =~ s/_//gmx;
+        my $v =  delete $args{$k};
+           $k =  lc $k;
+           $k =~ s/_//gmx;
         $args{$k} = $v;
     }
 
-    ### the end
     return %args;
 }
 
+sub _init_lock {
+    my $self    = shift;
+    my $LOCK_FH = $self->{'_lock_fh'};
+    my $LOCK;
 
-#=============================================================================
-1983;
+    close $LOCK_FH if(defined $LOCK_FH);
+    open($LOCK_FH, "+<", \$LOCK) or die "Cannot create LOCK\n";
+
+    $self->log->trace("Lock is ready and unlocked");
+
+    return($self->{'_lock_fh'} = $LOCK_FH);
+}
+
+sub _wait_for_lock {
+    my $self    = shift;
+    my $LOCK_FH = $self->{'_lock_fh'};
+    my $tmp;
+
+    $self->log->trace("Waiting for lock to unlock...");
+    flock $LOCK_FH, 2;
+    $self->log->trace("The lock got unlocked, but is now locked again");
+
+    return $tmp;
+}
+
+sub _unlock {
+    my $self    = shift;
+    my $LOCK_FH = $self->{'_lock_fh'};
+
+    $self->log->trace("Unlocking lock");
+    flock $LOCK_FH, 8;
+
+    return;
+}
+
+1;
 __END__
 
 =head1 NAME
@@ -318,7 +306,7 @@ SNMP::Effective - An effective SNMP-information-gathering module
 
 =head1 VERSION
 
-This document refers to version 1.05 of SNMP::Effective.
+This document refers to version 1.06 of SNMP::Effective.
 
 =head1 SYNOPSIS
 
@@ -654,6 +642,8 @@ L<http://search.cpan.org/dist/SNMP-Effective>
 =head1 ACKNOWLEDGEMENTS
 
 Various contributions by Oliver Gorwits.
+
+Sigurd Weisteen Larsen contributed with a better locking mechanism.
 
 =head1 COPYRIGHT & LICENSE
 

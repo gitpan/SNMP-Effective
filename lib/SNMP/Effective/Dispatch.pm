@@ -1,11 +1,7 @@
-
-#=================================
 package SNMP::Effective::Dispatch;
-#=================================
 
 use strict;
 use warnings;
-use Time::HiRes qw/usleep/;
 
 our $VERSION = '1.05';
 our %METHOD  = (
@@ -16,86 +12,66 @@ our %METHOD  = (
 );
 
 
-sub _set { #==================================================================
-
-    ### init
+sub _set {
     my $self     = shift;
     my $host     = shift;
     my $request  = shift;
     my $response = shift;
 
-    ### timeout
     return $self->_end($host, 'Timeout') unless(ref $response);
 
-    ### handle response
     for my $r (grep { ref $_ } @$response) {
         my $cur_oid = SNMP::Effective::make_numeric_oid($r->name);
         $host->data($r, $cur_oid);
     }
 
-    ### the end
     return $self->_end($host);
 }
 
-sub _get { #==================================================================
-
-    ### init
+sub _get {
     my $self     = shift;
     my $host     = shift;
     my $request  = shift;
     my $response = shift;
 
-    ### timeout
     return $self->_end($host, 'Timeout') unless(ref $response);
 
-    ### handle response
     for my $r (grep { ref $_ } @$response) {
         my $cur_oid = SNMP::Effective::make_numeric_oid($r->name);
         $host->data($r, $cur_oid);
     }
 
-    ### the end
     return $self->_end($host);
 }
 
-sub _getnext { #==============================================================
-
-    ### init
+sub _getnext {
     my $self     = shift;
     my $host     = shift;
     my $request  = shift;
     my $response = shift;
 
-    ### timeout
     return $self->_end($host, 'Timeout') unless(ref $response);
 
-    ### handle response
     for my $r (grep { ref $_ } @$response) {
         my $cur_oid = SNMP::Effective::make_numeric_oid($r->name);
         $host->data($r, $cur_oid);
     }
 
-    ### the end
     return $self->_end($host);
 }
 
-sub _walk { #=================================================================
-
-    ### init
+sub _walk {
     my $self     = shift;
     my $host     = shift;
     my $request  = shift;
     my $response = shift;
     my $i        = 0;
 
-    ### timeout
     return $self->_end($host, 'Timeout') unless(ref $response);
 
-    ### handle response
     while($i < @$response) {
         my $splice = 2;
 
-        ### handle result
         if(my $r = $response->[$i]) {
             my($cur_oid, $ref_oid) = SNMP::Effective::make_numeric_oid(
                                          $r->name, $request->[$i]->name
@@ -111,44 +87,34 @@ sub _walk { #=================================================================
             }
         }
 
-        ### bad result
         if($splice) {
             splice @$request, $i, 1;
             splice @$response, $i, 1;
         }
     }
 
-    ### to be continued
     if(@$response) {
         $$host->getnext($response, [ \&_walk, $self, $host, $request ]);
         return;
     }
-
-    ### no more to get
     else {
         return $self->_end($host);
     }
 }
 
-sub _end { #==================================================================
-
-    ### init
+sub _end {
     my $self  = shift;
     my $host  = shift;
     my $error = shift;
 
-    ### cleanup
     $self->log->debug("Calling callback for $host...");
     $host->callback->($host, $error);
     $host->clear_data;
 
-    ### the end
     return $self->dispatch($host)
 }
 
-sub dispatch { #==============================================================
-
-    ### init
+sub dispatch {
     my $self     = shift;
     my $host     = shift;
     my $hostlist = $self->hostlist;
@@ -156,14 +122,10 @@ sub dispatch { #==============================================================
     my $request;
     my $req_id;
 
-    ### setup
-    usleep 900 + int rand 200 while($self->_lock);
-    $self->_lock(1);
+    $self->_wait_for_lock;
 
     HOST:
     while($self->{'_sessions'} < $self->max_sessions or $host) {
-
-        ### init
         $host         ||= shift @$hostlist or last HOST;
         $request        = shift @$host     or next HOST;
         $req_id         = undef;
@@ -204,23 +166,19 @@ sub dispatch { #==============================================================
         }
     }
 
-    ### the end
-    $self->_lock(0);
-    $log->debug(
-        "Sessions/max-sessions: "
-       .$self->{'_sessions'} ." < " .$self->max_sessions
+    $log->debug(sprintf "Sessions/max-sessions: %i<%i",
+        $self->{'_sessions'}, $self->max_sessions
     );
     unless(@$hostlist or $self->{'_sessions'}) {
         $log->info("SNMP::finish() is next up");
         SNMP::finish();
     }
 
-    ### the end
+    $self->_unlock;
     return @$hostlist || $self->{'_sessions'};
 }
 
-#=============================================================================
-1983;
+1;
 __END__
 
 =head1 NAME
