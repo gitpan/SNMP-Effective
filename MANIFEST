@@ -9,10 +9,18 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/SNMP/Effective.pm
+lib/SNMP/Effective/AttributeHelpers/MethodProvider/HostList.pm
+lib/SNMP/Effective/AttributeHelpers/MethodProvider/VarList.pm
+lib/SNMP/Effective/AttributeHelpers/Trait/HostList.pm
+lib/SNMP/Effective/AttributeHelpers/Trait/VarList.pm
+lib/SNMP/Effective/Callbacks.pm
 lib/SNMP/Effective/Dispatch.pm
 lib/SNMP/Effective/Host.pm
 lib/SNMP/Effective/HostList.pm
+lib/SNMP/Effective/Lock.pm
 lib/SNMP/Effective/Logger.pm
+lib/SNMP/Effective/Role.pm
+lib/SNMP/Effective/Utils.pm
 lib/SNMP/Effective/VarList.pm
 Makefile.PL
 MANIFEST			This list of files
@@ -22,5 +30,7 @@ t/00-load.t
 t/01-perlcritic.t
 t/01-pod-coverage.t
 t/01-pod.t
+t/05-host.t
+t/05-utils.t
 t/10-create.t
 t/perlcritic.rc
