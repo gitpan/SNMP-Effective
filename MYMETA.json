@@ -1,0 +1,57 @@
+{
+   "abstract" : "An effective SNMP-information-gathering module",
+   "author" : [
+      "Jan Henning Thorsen, C<< <pm at flodhest.net> >>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Module::Install version 1.06, CPAN::Meta::Converter version 2.112621",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "SNMP-Effective",
+   "no_index" : {
+      "directory" : [
+         "examples",
+         "inc",
+         "t"
+      ],
+      "x_examples" : [
+         "0"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.36",
+            "Test::More" : 0
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.36"
+         }
+      },
+      "runtime" : {
+         "recommends" : {
+            "Log::Log4perl" : 0
+         },
+         "requires" : {
+            "POSIX" : 0,
+            "SNMP" : 0,
+            "Tie::Array" : 0,
+            "Time::HiRes" : 0
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ]
+   },
+   "version" : "1.10"
+}
