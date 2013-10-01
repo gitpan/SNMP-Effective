@@ -31,4 +31,5 @@ requires:
   Time::HiRes: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 1.11
+  repository: https://github.com/jhthorsen/snmp-effective.git
+version: 1.1101
